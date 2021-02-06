@@ -1,0 +1,132 @@
+---
+title: "World Happiness Report Analysis"
+author: |
+  | Jessie Geng
+geometry: margin=2cm
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+library(tidyverse)
+library(ggpubr)
+library(kableExtra)
+happiness <- read.csv("C:/Users/jessi/OneDrive - McGill University/McGill/FALL 2020/MATH 208/Final Project/Project_Happiness_data.csv")
+happiness2019 <- happiness[happiness$Year==2019, ]
+```
+
+## Family, Generosity, and Freedom by Region in 2019 
+To assess each of the scores by region in 2019, we first look at the distribution of the scores across region. From Figure 1, we see that they vary greatly depending on the region. A common pattern we see is Western Europe consistently ranking high and Sub-Saharan Africa ranking low. Some interesting variables to look at are government trust and generosity. For government trust, we see that every region has a very low median score except for Western Europe, but they also have the largest range of scores by far. This is in contrast to all the other variables where Western Europe often has the smallest range of values. 
+
+Another interesting variable is generosity, where each region's distribution looks fairly similar to the others. Asia and the South Pacific and Western Europe do have relatively higher medians, and the range of responses in Asia is much greater, but this is the one of the only variables where there isn't one region who is either much obviously higher or lower than the others. 
+```{r distribution of scores by region, fig.cap="Distribution of Scores by Region"}
+# plots of 6 variables by region
+gdp = happiness2019 %>% ggplot(aes(x=Region, y=GDPperCap, color=Region)) + geom_boxplot() + 
+  labs(title="GDP Per Capita") +
+  theme(axis.text.x=element_blank(), plot.title=element_text(hjust=0.5))
+
+gov = happiness2019 %>% ggplot(aes(x=Region, y=TrustGov, color=Region)) + geom_boxplot() + 
+  labs(title="Government Trust") +
+  theme(axis.text.x=element_blank(), plot.title=element_text(hjust=0.5))
+
+fam = happiness2019 %>% ggplot(aes(x=Region, y=Family, color=Region)) + geom_boxplot() + 
+  labs(title="Family") +
+  theme(axis.text.x=element_blank(), plot.title=element_text(hjust=0.5))
+
+free = happiness2019 %>% ggplot(aes(x=Region, y=Freedom, color=Region)) + geom_boxplot() + 
+  labs(title="Freedom") +
+  theme(axis.text.x=element_blank(), plot.title=element_text(hjust=0.5))
+
+health = happiness2019 %>% ggplot(aes(x=Region, y=HealthLifeExp, color=Region)) + geom_boxplot() + 
+  labs(title="Health") +
+  theme(axis.text.x=element_blank(), plot.title=element_text(hjust=0.5))
+
+gen = happiness2019 %>% ggplot(aes(x=Region, y=Generosity, color=Region)) + geom_boxplot() + 
+  labs(title="Generosity") +
+  theme(axis.text.x=element_blank(), plot.title=element_text(hjust=0.5))
+
+# plot all 6 in a grid 
+ggarrange(gdp, gov, fam, free, health, gen, ncol=3, nrow=2, common.legend=TRUE, legend="bottom")
+```
+
+Table 1 contains the mean scores by region, where we can confirm that Western Europe has some of the highest mean scores across all the 6 variables and that Sub-Saharan Africa has some of the lowest scores across the 6 variables. 
+
+When we look at the distribution of scores across region, we see that while the absolute values of each score by region differs, the position of each region relative to the other regions remains fairly consistent. In other words, we have that the 6 scores seem to show a similar pattern, with Sub-Saharan Africa ranking the lowest and Western Europe ranking the highest, with the other regions scattered somewhere in between. 
+
+However, when we look at each specific region across the six scores, we see a different picture. Most of the regions varied differently on the different scores, which we can see in Table 2. 
+
+```{r mean scores by region}
+# mean scores by region
+happiness2019 %>% group_by(Region) %>% summarise_at(vars(GDPperCap:Generosity), mean) %>%
+  kable(format="pipe", row.names=FALSE, digits=4,
+        caption="Mean Scores by Region", align=rep("c", 8)) 
+```
+
+```{r variance of the scores by region}
+# variance of scores by region
+happiness2019 %>% group_by(Region) %>% summarise_at(vars(GDPperCap:Generosity), var) %>%
+  kable(format="pipe", row.names=FALSE, digits=4,
+        caption="Variance of the Scores by Region", align=rep("c", 8)) 
+```
+
+## Predicted Happiness Score
+We now move to looking at each country's happiness score, which we compute for each country from 2015 to 2019 by summing across the 6 scores for that country in each of those years. 
+```{r country happiness scores}
+# country happiness scores 
+happiness$Happiness <- apply(happiness[, 3:8], 1, sum, na.rm=TRUE)
+```
+Now we compute the minimum and maximum happiness scores for each region in each year, which we will then plot.
+```{r compute region min/max}
+# min and max happiness scores by region per year 
+happiness_min_max <- happiness %>% group_by(Region, Year) %>%
+  summarize(Min=min(Happiness), Max=max(Happiness))
+```
+We see the ranges of happiness scores for each region in Figure 2, where we notice while that they differ across regions, they don't appear to change much within each region across the years. Each region's minimum and maximum happiness scores remains fairly constant from 2015 to 2019. More notably, they don't appear to be increasing over time, which is what one may initially think to be the case.  
+```{r plotting the min/max scores, fig.cap="Minimum and Maximum Happiness Scores by Region", fig.width=11, fig.height=6}
+# plot of region min/max happiness scores over time 
+happiness_min_max %>% ggplot(aes(x=Year, group=Region, col=Region)) + 
+  geom_linerange(aes(ymin=Min, ymax=Max)) + 
+  facet_wrap(~Region) + labs(x="Year", y="Happiness Score") + 
+  theme(legend.title=element_text(size=14), legend.text=element_text(size=12))
+```
+
+Out of curiosity, we now look at some other associations, namely those between each of the 6 variables and the earlier computed happiness score. These plots can be found in Figure 3, where we plot each of the 6 variables against the happiness score. Unsurprisingly, we see that GDP per capita and health + life expectancy (which I would imagine are also highly correlated with one another) have an almost perfectly positive relationship with the happiness score. Family and freedom also appear to be positively associated with happiness, which is a somewhat more surprising result. On the other hand, government trust and generosity do not appear to be linearly related to happiness. 
+```{r strongest predictor of happiness, fig.cap="Relationship Between Each Score and Happiness"}
+# plot of each score against happiness 
+gdp_hap = happiness %>% ggplot(aes(x=GDPperCap, y=Happiness, color=Region)) + geom_point() 
+
+gov_hap = happiness %>% ggplot(aes(x=TrustGov, y=Happiness, color=Region)) + geom_point() 
+
+fam_hap = happiness %>% ggplot(aes(x=Family, y=Happiness, color=Region)) + geom_point()
+
+free_hap = happiness %>% ggplot(aes(x=Freedom, y=Happiness, color=Region)) + geom_point() 
+
+health_hap = happiness %>% ggplot(aes(x=HealthLifeExp, y=Happiness, color=Region)) + geom_point() 
+
+gen_hap = happiness %>% ggplot(aes(x=Generosity, y=Happiness, color=Region)) + geom_point() 
+
+# plot all 6 in a grid 
+ggarrange(gdp_hap, gov_hap, fam_hap, free_hap, health_hap, gen_hap, ncol=3, nrow=2, 
+          common.legend=TRUE, legend="bottom")
+```
+
+## Happiest Countries Over Time 
+Our analyses now take us to comparing each country's happiness scores. We first examine the top 10 countries who had the highest average happiness scores over the 5 years. These results can be found in Table 4, where we see that Singapore tops the list with an average happiness score of 5.16. Looking at the regions for the top 10, we see that they're mainly located in Asia or the South Pacific and Western Europe, with the only entry from the Americas or the Caribbean being Canada. 
+```{r highest average happiness scores}
+# highest average happiness scores 
+happiness %>% group_by(Country, Region) %>% summarize(`Average Happiness`=mean(Happiness)) %>%
+  arrange(desc(`Average Happiness`)) %>% head(n=10) %>%
+  kable(format="pipe", row.names=FALSE, digits=4, 
+        caption="Top 10 Highest Average Happiness Scores", align=rep("c", 3)) 
+```
+Table 5 contains the top 10 countries who experienced the largest positive change in their happiness scores from 2015 to 2019. Many of these countries have an almost 1 point difference in their happiness scores between 2015 and 2019 and we see that all these countries are located in either Asia and the South Pacific or Central and Eastern Europe. 
+```{r largest positive change in happiness scores}
+# largest positive change in happiness scores
+happiness %>% filter(Year==2015 | Year==2019) %>% group_by(Country, Region) %>% 
+  summarize(Change=diff(Happiness)) %>% 
+  arrange(desc(Change)) %>% head(n=10) %>%
+  kable(format="pipe", row.names=FALSE, digits=4, 
+        caption="Top 10 Largest Positive Change in Happiness Scores", align=rep("c", 2)) 
+```
